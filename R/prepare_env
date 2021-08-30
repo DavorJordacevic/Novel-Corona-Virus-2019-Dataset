@@ -1,0 +1,12 @@
+#!/bin/bash
+
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+chmod +x Miniconda3-latest-Linux-x86_64.sh
+./Miniconda3-latest-Linux-x86_64.sh
+source ~/.bashrc
+conda init
+conda install -c conda-forge sweetviz
+apt install -y libudunits2-dev
+apt-get install -y libmagick++-dev
+apt-get install -y jq
+apt-get install -y libjq-dev

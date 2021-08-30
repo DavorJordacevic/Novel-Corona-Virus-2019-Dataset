@@ -1,0 +1,340 @@
+---
+title: #Novel Corona Virus 2019 Dataset
+output: html_notebook
+---
+
+\#\#1. Instalacija i priprema okruzenja
+
+```{r}
+install.packages("rstan", repos = "https://cloud.r-project.org/", dependencies = TRUE)
+install.packages("devtools")
+install.packages('rstantools')
+install.packages("reticulate")
+install.packages("pacman")
+```
+
+```{r}
+install.packages("nycflights13")
+install.packages("explore") 
+library(pacman)
+#remove.packages('rstantools')
+devtools::install_version("rstantools", version = "2.0.0") 
+Sys.setenv(DOWNLOAD_STATIC_LIBV8 = 1)
+remotes::install_github("jeroen/V8")
+p_load('prophet') 
+```
+
+```{r}
+devtools::install_github('facebookincubator/prophet', subdir='R')
+```
+
+```{r}
+devtools::install_github("Eyvaz27/Sweetviz-Implementation-in-R", force = TRUE)
+```
+
+```{r}
+Sys.setenv(DOWNLOAD_STATIC_LIBV8 = 1) # only necessary for Linux without the nodejs library / headers
+```
+
+```{r}
+install.packages("knitr")
+install.packages("rmarkdown")
+```
+
+```{r}
+install.packages("anytime")
+```
+
+```{r}
+install.packages("cowplot", dependencies = TRUE)
+install.packages("googleway")
+install.packages("ggplot2", dependencies = TRUE)
+install.packages("ggrepel") 
+install.packages("ggspatial")
+install.packages("libwgeom")
+install.packages("sf")
+install.packages("rnaturalearth")
+install.packages("rnaturalearthdata")
+install.packages("utilities")
+```
+
+\#\#2. Ucitavanje podataka i prikaz osnovnih informacija o dataset-u
+
+```{r}
+library(plyr)
+library(dplyr)
+library(rstan)
+library(stringr)
+library(anytime)
+library(prophet)
+library(sweetviz)
+library(utilities)
+library(data.table)
+```
+
+```{r}
+# Import the data and look at the first six rows
+data <- read.csv(file = 'covid19_data/covid_19_data.csv')
+head(data)
+```
+
+```{r}
+tail(data)
+```
+
+\#\#3. Analiza podataka
+
+```{r}
+# df.describe() ⇔ summary(df)  # similar to Python Pandas, but not exactly the same
+summary(data)
+```
+
+```{r}
+str(data)
+```
+
+```{r}
+generate.report(data)
+```
+
+Check 'Analysis.html' file.
+
+```{r}
+data_confirmed <- read.csv(file = 'covid19_data/time_series_covid_19_confirmed.csv')
+head(data_confirmed)
+```
+
+```{r}
+tail(data_confirmed)
+```
+
+```{r}
+data_deaths <- read.csv(file = 'covid19_data/time_series_covid_19_deaths.csv')
+head(data_deaths)
+```
+
+```{r}
+tail(data_deaths)
+```
+
+```{r}
+data_recovered <- read.csv(file = 'covid19_data/time_series_covid_19_recovered.csv')
+head(data_recovered)
+```
+
+```{r}
+tail(data_recovered)
+```
+
+\#\#4. Preprocessing
+
+```{r}
+data <- rename(data, 'Date' = 'ObservationDate', 'Country' = 'Country.Region')
+```
+
+```{r}
+head(data)
+```
+
+```{r}
+data$Country <- recode(data$Country
+                                  ,'US' = 'USA'
+                                  ,'United Kingdom' = 'UK'
+                                  ,'Mainland China' = 'China'
+                                  )
+```
+
+```{r}
+head(data)
+```
+
+```{r}
+data_confirmed <- rename(data_confirmed, 'Country' = 'Country.Region')
+data_recovered <- rename(data_recovered, 'Country' = 'Country.Region')
+data_deaths <- rename(data_deaths, 'Country' = 'Country.Region')
+```
+
+```{r include=FALSE}
+data_confirmed$Country <- recode(data_confirmed$Country
+                                  ,'US' = 'USA'
+                                  ,'United Kingdom' = 'UK'
+                                  ,'Mainland China' = 'China'
+                                  )
+
+data_recovered$Country <- recode(data_recovered$Country
+                                  ,'US' = 'USA'
+                                  ,'United Kingdom' = 'UK'
+                                  ,'Mainland China' = 'China'
+                                  )
+
+data_deaths$Country <- recode(data_deaths$Country
+                                  ,'US' = 'USA'
+                                  ,'United Kingdom' = 'UK'
+                                  ,'Mainland China' = 'China'
+                                  )
+```
+
+```{r}
+data_grouped <- group_by(data, 'Date', 'Country', 'Province/State')[c('SNo', 'Date', 'Province.State', 'Country', 'Confirmed', 'Deaths', 'Recovered')]
+```
+
+```{r}
+head(data_grouped)
+```
+
+```{r}
+head(data_grouped)
+```
+
+```{r}
+data$Date <- anytime::anydate(data$Date)
+```
+
+```{r}
+head(data)
+```
+
+```{r}
+confirmed <- ddply(data, .(Date), summarise, sum = sum(Confirmed))
+```
+
+```{r}
+# Sort date descending order
+confirmed <- confirmed[order(as.Date(confirmed$Date, format = "%y/%m/%d")),]
+```
+
+```{r}
+head(confirmed)
+```
+
+```{r}
+colnames(confirmed)[which(names(confirmed) == "Date")] <- "ds"
+colnames(confirmed)[which(names(confirmed) == "sum")] <- "y"
+```
+
+```{r}
+head(confirmed)
+```
+
+```{r}
+tail(confirmed)
+```
+
+```{r}
+m <- prophet(confirmed)
+future <- make_future_dataframe(m, periods = 30)
+tail(future)
+```
+
+```{r}
+forecast <- predict(m, future)
+tail(forecast[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')])
+```
+
+```{r}
+plot(m, forecast)
+```
+
+```{r}
+prophet_plot_components(m, forecast)
+```
+
+```{r}
+library("ggplot2")
+theme_set(theme_bw())
+library("sf")
+library(scales) 
+library("rnaturalearth")
+library("rnaturalearthdata")
+```
+```{r}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+world$admin
+```
+
+```{r}
+data <- read.csv(file = 'covid19_data/covid_19_data.csv')
+data <- rename(data, 'Date' = 'ObservationDate', 'Country' = 'Country.Region')
+unique(data$Country)
+```
+
+```{r}
+data$Country <- recode(data$Country
+                                  ,'US' = 'United States of America'
+                                  ,'Mainland China' = 'China'
+                                  ,'UK' = 'United Kingdom'
+                                  ,'Congo (Kinshasa)' = 'Democratic Republic of the Congo'
+                                  ,'Congo (Brazzaville)' = 'Democratic Republic of the Congo'
+                                  ,'Republic of the Congo' = 'Democratic Republic of the Congo'
+                                  ,'Tanzania' = 'United Republic of Tanzania'
+                                  ,'Burma' = 'Myanmar'
+                                  ,'Serbia' = 'Republic of Serbia'
+                                  )
+data
+
+```
+
+```{r}
+data$Date <- anytime::anydate(data$Date)
+head(data)
+```
+
+```{r}
+confirmed <- data[order(as.Date(data$Date, format = "%y/%m/%d")),]
+last_updated_date <- max(confirmed$Date, na.rm = TRUE)
+print(last_updated_date)
+confirmed <- confirmed[confirmed$Date >= last_updated_date, ][,c('Country','Confirmed')]
+head(confirmed)
+```
+
+```{r}
+# Find duplicates
+duplicated(confirmed$Country)
+```
+
+```{r}
+# Group by country name
+confirmed <- aggregate(confirmed$Confirmed, by=list(confirmed$Country), FUN=sum)
+colnames(confirmed)[which(names(confirmed) == "Group.1")] <- "admin"
+colnames(confirmed)[which(names(confirmed) == "x")] <- "confirmed"
+head(confirmed)
+tail(confirmed)
+```
+
+```{r}
+# Find duplicates
+duplicated(confirmed$Country)
+```
+
+```{r}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+merged_data <- merge(x = world, y = confirmed, by = 'admin', all.x = TRUE)
+```
+
+```{r}
+map_caption <- cbind("Data generated on: ", as.character(last_updated_date))
+map_caption <- paste(map_caption, collapse="")
+```
+
+```{r}
+ggplot(data = merged_data) +
+    geom_sf(aes(fill = confirmed)) +
+    scale_fill_viridis_c(option = "plasma", aesthetics = "fill", labels = comma, name = "Total confirmed Covid-19 cases") + 
+    guides(colour = guide_coloursteps()) +
+  labs(
+    title = "Covid-19 cases",
+    caption = map_caption
+  ) +
+  theme(
+    text = element_text(color = "#22211d"),
+    plot.background = element_rect(fill = "#f5f5f2", color = NA),
+    panel.background = element_rect(fill = "#f5f5f2", color = NA),
+    legend.background = element_rect(fill = "#f5f5f2", color = NA),
+
+    plot.title = element_text(size= 20, hjust=0.01, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+    plot.caption = element_text( size=12, color = "#4e4d47", margin = margin(b = 0.3, r=-99, unit = "cm") )
+  )
+
+ggsave("map.pdf")
+ggsave("map_web.png", width = 8, height = 8, dpi = "screen")
+```
